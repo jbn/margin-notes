@@ -46,14 +46,14 @@ PAGE_HTML = "<html><head><title>Page</title></head><body><h1>Hi</h1><p>Text</p><
 def tree(tmp_path: Path) -> Path:
     """A small folder: Markdown, HTML, an image, a dotfile, a dot-directory and a plain file."""
     (tmp_path / "docs" / "img").mkdir(parents=True)
-    (tmp_path / "docs" / "guide.md").write_text(GUIDE_MD, encoding="utf-8")
+    (tmp_path / "docs" / "guide.md").write_text(GUIDE_MD, encoding="utf-8", newline="\n")
     (tmp_path / "docs" / "img" / "pic.png").write_bytes(b"\x89PNG fake")
-    (tmp_path / "page.html").write_text(PAGE_HTML, encoding="utf-8")
-    (tmp_path / "plain.md").write_text("Just text. Costs $5 and $10.\n", encoding="utf-8")
-    (tmp_path / "data.csv").write_text("a,b\n1,2\n", encoding="utf-8")
-    (tmp_path / ".secret").write_text("nope", encoding="utf-8")
+    (tmp_path / "page.html").write_text(PAGE_HTML, encoding="utf-8", newline="\n")
+    (tmp_path / "plain.md").write_text("Just text. Costs $5 and $10.\n", encoding="utf-8", newline="\n")
+    (tmp_path / "data.csv").write_text("a,b\n1,2\n", encoding="utf-8", newline="\n")
+    (tmp_path / ".secret").write_text("nope", encoding="utf-8", newline="\n")
     (tmp_path / ".git").mkdir()
-    (tmp_path / ".git" / "config").write_text("[core]", encoding="utf-8")
+    (tmp_path / ".git" / "config").write_text("[core]", encoding="utf-8", newline="\n")
     return tmp_path
 
 

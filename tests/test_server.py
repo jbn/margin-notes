@@ -58,11 +58,12 @@ class TestListing:
         assert '<span class="badge">2 notes</span>' in client.get("/").text
 
     def test_awkward_names_are_escaped_and_quoted(self, client, tree):
-        (tree / "a <b> & c.md").write_text("# x\n", encoding="utf-8")
+        # Spaces, #, &, quotes and brackets: all legal filenames on Windows too.
+        (tree / "a #1 & 'c' [x].md").write_text("# x\n", encoding="utf-8", newline="\n")
         t = client.get("/").text
-        assert 'href="a%20%3Cb%3E%20%26%20c.md"' in t
-        assert ">a &lt;b&gt; &amp; c.md<" in t
-        assert client.get("/a%20%3Cb%3E%20%26%20c.md").status_code == 200
+        assert 'href="a%20%231%20%26%20%27c%27%20%5Bx%5D.md"' in t
+        assert ">a #1 &amp; &#x27;c&#x27; [x].md<" in t
+        assert client.get("/a%20%231%20%26%20%27c%27%20%5Bx%5D.md").status_code == 200
 
     def test_empty_folder(self, client, tree):
         (tree / "empty").mkdir()
@@ -82,7 +83,7 @@ class TestDocuments:
 
     @pytest.mark.parametrize("name", ["x.markdown", "x.MD", "x.mdown", "x.mkd"])
     def test_markdown_extensions(self, client, tree, name):
-        (tree / name).write_text("# Ext\n", encoding="utf-8")
+        (tree / name).write_text("# Ext\n", encoding="utf-8", newline="\n")
         assert "<title>Ext</title>" in client.get(f"/{name}").text
 
     def test_html_gets_the_overlay(self, client):
@@ -92,7 +93,7 @@ class TestDocuments:
         assert client.get("/page.html?raw=1").text == PAGE_HTML
 
     def test_htm(self, client, tree):
-        (tree / "old.htm").write_text(PAGE_HTML, encoding="utf-8")
+        (tree / "old.htm").write_text(PAGE_HTML, encoding="utf-8", newline="\n")
         assert OVERLAY_TAG in client.get("/old.htm").text
 
     def test_relative_assets_are_served(self, client):
@@ -140,9 +141,9 @@ class TestConfinement:
     def test_symlinks_out_of_root_are_blocked(self, tmp_path):
         root, outside = tmp_path / "root", tmp_path / "outside.md"
         root.mkdir()
-        outside.write_text("# secret\n", encoding="utf-8")
+        outside.write_text("# secret\n", encoding="utf-8", newline="\n")
         (root / "link.md").symlink_to(outside)
-        (root / "inside.md").write_text("# ok\n", encoding="utf-8")
+        (root / "inside.md").write_text("# ok\n", encoding="utf-8", newline="\n")
         (root / "alias.md").symlink_to(root / "inside.md")
         c = TestClient(create_app(root))
         assert c.get("/link.md").status_code == 404
@@ -167,7 +168,7 @@ class TestNotesApi:
         assert not (tree / "docs" / "guide.md.notes.json").exists()
 
     def test_doc_param_is_percent_encoded_path(self, client, tree):
-        (tree / "my doc.md").write_text("# x\n", encoding="utf-8")
+        (tree / "my doc.md").write_text("# x\n", encoding="utf-8", newline="\n")
         assert client.put(API, params={"doc": "/my%20doc.md"}, json=note("a")).status_code == 200
         assert (tree / "my doc.md.notes.json").exists()
 
@@ -195,7 +196,7 @@ class TestNotesApi:
         assert r.status_code == 400
 
     def test_corrupt_notes_file_is_reported(self, client, tree: Path):
-        (tree / "page.html.notes.json").write_text("{bad", encoding="utf-8")
+        (tree / "page.html.notes.json").write_text("{bad", encoding="utf-8", newline="\n")
         r = client.get(API, params={"doc": "/page.html"})
         assert r.status_code == 500
         assert "page.html.notes.json is not valid JSON" in r.json()["detail"]

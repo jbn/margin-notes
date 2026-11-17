@@ -66,8 +66,9 @@ def browser():
 
 @pytest.fixture
 def site(tmp_path: Path) -> Iterator[tuple[str, Path]]:
-    (tmp_path / "article.html").write_text(ARTICLE, encoding="utf-8")
-    (tmp_path / "readme.md").write_text("# Readme\n\nInstall it with **uv** and run it.\n", encoding="utf-8")
+    (tmp_path / "article.html").write_text(ARTICLE, encoding="utf-8", newline="\n")
+    readme = "# Readme\n\nInstall it with **uv** and run it.\n"
+    (tmp_path / "readme.md").write_text(readme, encoding="utf-8", newline="\n")
     port = free_port("127.0.0.1", 18765)
     server = uvicorn.Server(uvicorn.Config(create_app(tmp_path), host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
@@ -218,7 +219,8 @@ def test_edited_document_shows_not_found(site, page):
     url, root = site
     open_doc(page, url + "article.html")
     comment(page, "across the corpus", "which corpus?")
-    (root / "article.html").write_text(ARTICLE.replace("across the corpus", "on the full set"), encoding="utf-8")
+    edited = ARTICLE.replace("across the corpus", "on the full set")
+    (root / "article.html").write_text(edited, encoding="utf-8", newline="\n")
     page.reload()
     open_doc(page, url + "article.html")
     assert marks(page) == []

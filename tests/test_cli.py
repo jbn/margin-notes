@@ -48,7 +48,7 @@ def test_folder(run, tree, capsys):
 
 
 def test_document_opens_its_url(run, tree):
-    (tree / "my notes.md").write_text("# x\n", encoding="utf-8")
+    (tree / "my notes.md").write_text("# x\n", encoding="utf-8", newline="\n")
     calls, opened = run(str(tree / "my notes.md"), "--port", "0")
     assert opened == [f"http://127.0.0.1:{calls['port']}/my%20notes.md"]
 

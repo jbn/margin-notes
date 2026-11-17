@@ -17,7 +17,7 @@ from conftest import note
 @pytest.fixture
 def doc(tmp_path: Path) -> Path:
     p = tmp_path / "report.md"
-    p.write_text("# Report\n\nCareful.\n", encoding="utf-8")
+    p.write_text("# Report\n\nCareful.\n", encoding="utf-8", newline="\n")
     return p
 
 
@@ -104,14 +104,15 @@ class TestStore:
         assert stat.S_IMODE(notes_path(doc).stat().st_mode) == FILE_MODE
 
     def test_corrupt_file(self, store, doc):
-        notes_path(doc).write_text("{not json", encoding="utf-8")
+        notes_path(doc).write_text("{not json", encoding="utf-8", newline="\n")
         assert store.count(doc) == 0
         with pytest.raises(ValueError):
             store.read(doc)
 
     def test_reads_files_from_the_single_file_version(self, store, doc):
         # Notes written by the original single-file script have the same shape.
-        notes_path(doc).write_text(json.dumps({"document": "report.md", "notes": [note("old")]}), encoding="utf-8")
+        legacy = json.dumps({"document": "report.md", "notes": [note("old")]})
+        notes_path(doc).write_text(legacy, encoding="utf-8", newline="\n")
         store.upsert(doc, note("new", start=50))
         assert [n["id"] for n in store.read(doc)] == ["old", "new"]
 
