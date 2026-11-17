@@ -1,11 +1,19 @@
 name: Release
 
-# Push a tag like v0.1.0 to build and publish to PyPI. Needs a PyPI "trusted publisher"
-# for this repository and workflow (https://docs.pypi.org/trusted-publishers/), so no API
-# token is stored in GitHub.
+# Publishing uses PyPI "trusted publishers" (https://docs.pypi.org/trusted-publishers/), so no
+# API token is stored in GitHub. Each index needs one configured for this repository with
+# workflow `release.yml`:
+#
+#   - Run this workflow by hand (Actions > Release > Run workflow) to publish to TestPyPI,
+#     environment `testpypi`. Use it as a dry run before a real release.
+#   - Push a tag like v0.1.0 to publish to PyPI, environment `pypi`.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -14,18 +22,42 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - name: Tag matches package version
+        if: github.ref_type == 'tag'
         run: test "${GITHUB_REF_NAME#v}" = "$(uv run --no-dev python -c 'import margin_notes; print(margin_notes.__version__)')"
       - run: uv run pytest
       - run: uv build
+      - run: uvx twine check --strict dist/*
       - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-  publish:
+  testpypi:
+    if: github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/margin-notes/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  pypi:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/margin-notes/
     permissions:
       id-token: write
     steps:

@@ -38,6 +38,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jbn/margin-notes"
+Repository = "https://github.com/jbn/margin-notes"
+Issues = "https://github.com/jbn/margin-notes/issues"
+Changelog = "https://github.com/jbn/margin-notes/blob/main/CHANGELOG.md"
+
 [project.scripts]
 margin-notes = "margin_notes.cli:main"
 

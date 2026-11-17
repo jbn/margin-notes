@@ -1,7 +1,14 @@
 # margin-notes
 
+[![CI](https://github.com/jbn/margin-notes/actions/workflows/ci.yml/badge.svg)](https://github.com/jbn/margin-notes/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/margin-notes)](https://pypi.org/project/margin-notes/)
+[![Python](https://img.shields.io/pypi/pyversions/margin-notes)](https://pypi.org/project/margin-notes/)
+[![License: MIT](https://img.shields.io/github/license/jbn/margin-notes)](https://github.com/jbn/margin-notes/blob/main/LICENSE)
+
 Review HTML and Markdown documents in your browser. Select a passage, leave a comment, and the
 notes save as JSON next to the document, ready for a person or an LLM agent to act on.
+
+![A Markdown design proposal open in margin-notes, with three highlighted passages, a comment being written, and the notes panel listing each note by section](https://raw.githubusercontent.com/jbn/margin-notes/main/docs/screenshot.png)
 
 It replaces `python -m http.server` when the reason you're serving a folder is to read and
 critique what's in it.
@@ -104,10 +111,17 @@ that no longer match. They need no network.
 
 ### Releasing
 
+0. Optional dry run: run the **Release** workflow by hand from the Actions tab. It builds and
+   publishes to [TestPyPI](https://test.pypi.org/project/margin-notes/); then check the page and
+   `uvx --index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match margin-notes --version`.
 1. Bump `__version__` in `src/margin_notes/__init__.py` and add a section to `CHANGELOG.md`.
 2. Commit, then tag and push: `git tag v0.1.0 && git push --tags`.
 3. `.github/workflows/release.yml` checks that the tag matches the version, runs the tests,
-   builds, and publishes to PyPI through a trusted publisher. Set that up once at
-   <https://pypi.org/manage/account/publishing/> with workflow `release.yml` and environment `pypi`.
+   builds, and publishes to PyPI.
+
+Both indexes publish through trusted publishers, so no token lives in GitHub. Set each up once,
+for repository `jbn/margin-notes` and workflow `release.yml`: at
+<https://test.pypi.org/manage/account/publishing/> with environment `testpypi`, and at
+<https://pypi.org/manage/account/publishing/> with environment `pypi`.
 
 To publish from your own machine instead, run `uv build && uv publish`.

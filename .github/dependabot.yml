@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Keep the actions in .github/workflows current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Refresh uv.lock. pyproject.toml lower bounds stay put; CI's lowest-deps job guards them.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    versioning-strategy: lockfile-only
+    groups:
+      dependencies:
+        patterns: ["*"]
