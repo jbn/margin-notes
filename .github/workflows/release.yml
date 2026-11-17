@@ -1,0 +1,36 @@
+name: Release
+
+# Push a tag like v0.1.0 to build and publish to PyPI. Needs a PyPI "trusted publisher"
+# for this repository and workflow (https://docs.pypi.org/trusted-publishers/), so no API
+# token is stored in GitHub.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Tag matches package version
+        run: test "${GITHUB_REF_NAME#v}" = "$(uv run --no-dev python -c 'import margin_notes; print(margin_notes.__version__)')"
+      - run: uv run pytest
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
