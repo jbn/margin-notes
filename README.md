@@ -112,8 +112,15 @@ that no longer match. They need no network.
 ### Releasing
 
 0. Optional dry run: run the **Release** workflow by hand from the Actions tab. It builds and
-   publishes to [TestPyPI](https://test.pypi.org/project/margin-notes/); then check the page and
-   `uvx --index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match margin-notes --version`.
+   publishes to [TestPyPI](https://test.pypi.org/project/margin-notes/). Check the page, then
+   run the uploaded wheel. Only the wheel comes from TestPyPI; its dependencies come from PyPI,
+   because TestPyPI holds unrelated packages under real names (such as a broken `fastapi 1.0`):
+
+   ```sh
+   uvx --refresh --from "margin-notes @ $(curl -s https://test.pypi.org/pypi/margin-notes/json \
+     | python3 -c 'import json,sys; print(next(u["url"] for u in json.load(sys.stdin)["urls"] if u["filename"].endswith(".whl")))')" \
+     margin-notes --version
+   ```
 1. Bump `__version__` in `src/margin_notes/__init__.py` and add a section to `CHANGELOG.md`.
 2. Commit, then tag and push: `git tag v0.1.0 && git push --tags`.
 3. `.github/workflows/release.yml` checks that the tag matches the version, runs the tests,
