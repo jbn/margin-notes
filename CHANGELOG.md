@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The notes panel shows the notes file's full path, with **Copy path** and **Copy JSON**
+  buttons. Copying also works over plain http on a LAN address (`--host 0.0.0.0`).
+- The notes API now also returns `notes_path` (absolute) and `notes_json` (the file's contents).
+
 ## 0.1.0 (2026-11-18)
 
 First release.

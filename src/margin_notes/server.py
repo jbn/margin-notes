@@ -53,7 +53,16 @@ def create_app(root: Path) -> FastAPI:
         return target
 
     def notes_payload(doc: Path, notes: list) -> dict:
-        return {"notes": notes, "notes_file": notes_path(doc).name}
+        try:
+            content = store.read_file(doc)
+        except ValueError:
+            content = None
+        return {
+            "notes": notes,
+            "notes_file": notes_path(doc).name,
+            "notes_path": str(notes_path(doc)),
+            "notes_json": content,
+        }
 
     @app.get("/__review/static/{name}")
     def static(name: str) -> Response:

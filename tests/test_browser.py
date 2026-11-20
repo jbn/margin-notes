@@ -199,6 +199,35 @@ def test_general_note(site, page):
     assert n["comment"] == "Overall: needs a summary up top."
 
 
+@pytest.mark.parametrize("secure", [True, False], ids=["clipboard-api", "execcommand-fallback"])
+def test_copy_path_and_json(site, browser, secure):
+    url, root = site
+    ctx = browser.new_context(permissions=["clipboard-read", "clipboard-write"])
+    page = ctx.new_page()
+    if not secure:  # what plain http on a LAN address looks like
+        page.add_init_script("Object.defineProperty(window, 'isSecureContext', { get: () => false })")
+    try:
+        open_doc(page, url + "article.html")
+        page.evaluate(SELECT, ["p3", "held-out", 0])
+        ui(page, "#add").click()
+        ui(page, "textarea").fill("source?")
+        ui(page, ".save").click()
+        page.wait_for_timeout(300)
+        ui(page, "#toggle").click()
+        clip = "() => navigator.clipboard.readText()"
+
+        ui(page, ".copy-path").click()
+        page.wait_for_timeout(100)
+        assert page.evaluate(clip) == str(root / "article.html.notes.json")
+        assert ui(page, ".copy-path").text_content() == "Copied ✓"
+
+        ui(page, ".copy-json").click()
+        page.wait_for_timeout(100)
+        assert json.loads(page.evaluate(clip)) == json.loads((root / "article.html.notes.json").read_text("utf-8"))
+    finally:
+        ctx.close()
+
+
 def test_typing_does_not_trigger_page_shortcuts(site, page):
     url, _ = site
     open_doc(page, url + "article.html")

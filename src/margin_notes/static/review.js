@@ -63,6 +63,10 @@
     .meta { padding: 8px 14px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; }
     .meta .status { flex: 1; }
     .meta .err { color: var(--danger); }
+    .copy { padding: 8px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 6px; align-items: center; }
+    .copy code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl;
+      text-align: left; color: var(--muted); font-size: 11px; }
+    .copy button { font-size: 12px; padding: 3px 8px; white-space: nowrap; }
     ol { list-style: none; margin: 0; padding: 6px; overflow: auto; flex: 1; }
     li { padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
     li:hover { border-color: var(--line); }
@@ -89,6 +93,7 @@
   <aside id="panel" hidden>
     <header><b>Review notes</b><button class="general">+ General note</button><button class="close" title="Close">✕</button></header>
     <div class="meta"><span class="status"></span><a class="folder" href="./">Folder</a></div>
+    <div class="copy"><code class="path"></code><button class="copy-path" title="Copy the notes file's full path">Copy path</button><button class="copy-json" title="Copy the notes file's JSON">Copy JSON</button></div>
     <ol></ol>
   </aside>`;
 
@@ -267,6 +272,7 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         setStatus(`Saved to ${data.notes_file} at ${new Date().toLocaleTimeString()}`);
+        setFile(data);
         // Pick up notes other reviewers added, unless we're mid-edit.
         if (!editing && Array.isArray(data.notes)) { notes = data.notes; sortNotes(); render(); }
       })
@@ -403,6 +409,37 @@
   });
 
   // ---------- panel ----------
+  // The server sends the file's path and contents with every response, so copying is synchronous:
+  // Safari refuses clipboard writes that happen after an await.
+  let filePath = "", fileJson = null;
+  function setFile(data) {
+    if (typeof data.notes_path === "string") { filePath = data.notes_path; $(".copy .path").textContent = "\u200e" + filePath; $(".copy .path").title = filePath; }
+    if ("notes_json" in data) fileJson = data.notes_json;
+  }
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    // Plain http on a LAN address (--host 0.0.0.0) has no clipboard API; fall back to execCommand.
+    const t = document.createElement("textarea");
+    t.value = text;
+    t.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    root.appendChild(t);
+    t.select();
+    const ok = document.execCommand("copy");
+    t.remove();
+    return ok ? Promise.resolve() : Promise.reject(new Error("copy blocked"));
+  }
+  function copyButton(sel, label, get) {
+    const b = $(sel);
+    b.addEventListener("click", () => {
+      const text = get();
+      if (text == null) { setStatus("Nothing to copy yet", true); return; }
+      copyText(text).then(
+        () => { b.textContent = "Copied ✓"; setTimeout(() => { b.textContent = label; }, 1200); },
+        (e) => setStatus(`Copy failed (${e.message})`, true));
+    });
+  }
+  copyButton(".copy-path", "Copy path", () => filePath || null);
+  copyButton(".copy-json", "Copy JSON", () => (fileJson ? JSON.stringify(fileJson, null, 2) : null));
   $("#toggle").addEventListener("click", () => { panel.hidden = !panel.hidden; });
   $("#panel .close").addEventListener("click", () => { panel.hidden = true; });
   $("#panel .general").addEventListener("click", () => {
@@ -424,6 +461,7 @@
       if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
       notes = Array.isArray(data.notes) ? data.notes : [];
       notesFile = data.notes_file;
+      setFile(data);
       setStatus(notes.length ? `Loaded ${notes.length} note(s) from ${notesFile}` : `Notes save to ${notesFile}`);
     } catch (e) {
       setStatus(`Couldn't load notes (${e.message})`, true);

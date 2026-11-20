@@ -50,6 +50,15 @@ class TestStore:
         assert store.read(doc) == []
         assert store.count(doc) == 0
 
+    def test_read_file_matches_disk(self, store, doc):
+        store.upsert(doc, note("a"))
+        assert store.read_file(doc) == saved(doc)
+
+    def test_read_file_before_any_notes(self, store, doc):
+        data = store.read_file(doc)
+        assert data["notes"] == [] and data["document"] == "report.md"
+        assert not notes_path(doc).exists()
+
     def test_file_contents(self, store, doc):
         store.upsert(doc, note("a"))
         data = saved(doc)

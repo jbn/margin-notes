@@ -32,7 +32,8 @@ uvx margin-notes ~/reports --host 0.0.0.0 --port 9000
   - **Diagrams** in ```` ```mermaid ```` fences.
   - Add `?raw=1` to any document URL to get the source.
 - **Reviewing:** select text and click **💬 Comment**. ⌘↵ saves and Esc cancels. Click a highlight to
-  edit or delete it. **Notes** (bottom right) lists every note in document order and has
+  edit or delete it. **Notes** (bottom right) lists every note in document order, has **Copy path** and
+  **Copy JSON** for the notes file, and has
   **+ General note** for comments about the whole document. Every change saves immediately.
 
 MathJax and mermaid load from jsDelivr, so math and diagrams need internet access. Everything

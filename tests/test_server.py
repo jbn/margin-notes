@@ -154,7 +154,11 @@ class TestNotesApi:
     def test_roundtrip(self, client, tree):
         doc = {"doc": "/docs/guide.md"}
         r = client.get(API, params=doc)
-        assert r.json() == {"notes": [], "notes_file": "guide.md.notes.json"}
+        body = r.json()
+        assert body["notes"] == []
+        assert body["notes_file"] == "guide.md.notes.json"
+        assert body["notes_path"] == str(tree / "docs" / "guide.md.notes.json")
+        assert body["notes_json"]["notes"] == [] and body["notes_json"]["document"] == "guide.md"
 
         r = client.put(API, params=doc, json=note("a", comment="why?", _orphan=True))
         assert r.status_code == 200
@@ -166,6 +170,14 @@ class TestNotesApi:
         r = client.delete(f"{API}/a", params=doc)
         assert r.json()["notes"] == []
         assert not (tree / "docs" / "guide.md.notes.json").exists()
+
+    def test_responses_carry_the_file_for_copying(self, client, tree):
+        doc = {"doc": "/docs/guide.md"}
+        body = client.put(API, params=doc, json=note("a", comment="why?")).json()
+        path = tree / "docs" / "guide.md.notes.json"
+        assert body["notes_path"] == str(path)
+        assert body["notes_json"] == json.loads(path.read_text(encoding="utf-8"))
+        assert client.get(API, params=doc).json()["notes_json"] == body["notes_json"]
 
     def test_doc_param_is_percent_encoded_path(self, client, tree):
         (tree / "my doc.md").write_text("# x\n", encoding="utf-8", newline="\n")

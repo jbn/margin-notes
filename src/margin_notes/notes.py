@@ -47,6 +47,18 @@ def _order(note: dict[str, Any]) -> tuple:
     return (0, 0, str(note.get("created_at", "")))
 
 
+def notes_document(doc: Path, notes: list[dict[str, Any]]) -> dict[str, Any]:
+    """The object a notes file holds."""
+    return {
+        "about": ABOUT.format(doc=doc.name),
+        "document": doc.name,
+        "document_path": str(doc),
+        "document_sha256": hashlib.sha256(doc.read_bytes()).hexdigest(),
+        "updated_at": now(),
+        "notes": notes,
+    }
+
+
 def validate(note: Any) -> dict[str, Any]:
     if not isinstance(note, dict) or not isinstance(note.get("id"), str) or not NOTE_ID.match(note["id"]):
         raise ValueError("a note is an object with an `id` of letters, digits, _ or -")
@@ -60,11 +72,14 @@ class NoteStore:
         self._lock = threading.Lock()
 
     def read(self, doc: Path) -> list[dict[str, Any]]:
+        return list(self.read_file(doc).get("notes", []))
+
+    def read_file(self, doc: Path) -> dict[str, Any]:
+        """The notes file's contents, or what it would hold with no notes yet."""
         path = notes_path(doc)
         if not path.exists():
-            return []
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return list(data.get("notes", []))
+            return notes_document(doc, [])
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def count(self, doc: Path) -> int:
         try:
@@ -91,14 +106,7 @@ class NoteStore:
         if not notes and path.exists():
             path.unlink()
             return notes
-        data = {
-            "about": ABOUT.format(doc=doc.name),
-            "document": doc.name,
-            "document_path": str(doc),
-            "document_sha256": hashlib.sha256(doc.read_bytes()).hexdigest(),
-            "updated_at": now(),
-            "notes": notes,
-        }
+        data = notes_document(doc, notes)
         fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".notes-", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
