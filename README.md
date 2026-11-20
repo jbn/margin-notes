@@ -86,7 +86,7 @@ margin-notes [PATH] [--host HOST] [-p PORT] [--no-open] [--version]
 | Option | Default | |
 |---|---|---|
 | `PATH` | `.` | A folder to browse, or a document to open |
-| `--host` | `127.0.0.1` | `0.0.0.0` makes it reachable from your network |
+| `--host` | `127.0.0.1` | `0.0.0.0` makes it reachable from your network, and prints the machine's [Tailscale](https://tailscale.com) URLs if it's on a tailnet |
 | `-p`, `--port` | `8765` | The first port to try; it moves up if that one is busy |
 | `--no-open` | | Don't open a browser |
 

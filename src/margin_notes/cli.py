@@ -5,7 +5,10 @@ from __future__ import annotations
 import argparse
 import contextlib
 import ipaddress
+import json
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 import webbrowser
@@ -36,6 +39,42 @@ def lan_address() -> str | None:
             return s.getsockname()[0]
     except OSError:
         return None
+
+
+# The Mac App Store build of Tailscale keeps its CLI inside the app bundle, off PATH.
+TAILSCALE_APP = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
+
+
+def tailscale_status(timeout: float = 2.0) -> dict | None:
+    """`tailscale status --json` from the Tailscale CLI, or None if it's absent, stopped or slow."""
+    exe = shutil.which("tailscale") or (str(TAILSCALE_APP) if TAILSCALE_APP.is_file() else None)
+    if not exe:
+        return None
+    try:
+        out = subprocess.run(
+            [exe, "status", "--json"], capture_output=True, text=True, timeout=timeout, check=False
+        ).stdout
+        status = json.loads(out)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    if not isinstance(status, dict) or status.get("BackendState") != "Running":
+        return None
+    return status
+
+
+def tailscale_names(status: dict | None) -> list[str]:
+    """This machine's names on the tailnet: the MagicDNS short and full names, else its IPv4 address."""
+    me = (status or {}).get("Self") or {}
+    full = str(me.get("DNSName") or "").rstrip(".")
+    magic_dns = ((status or {}).get("CurrentTailnet") or {}).get("MagicDNSEnabled")
+    names = [full.split(".")[0], full] if full and magic_dns else [full] if full else []
+    if not names:
+        names = [ip for ip in me.get("TailscaleIPs") or [] if ":" not in ip][:1]
+    return list(dict.fromkeys(names))
+
+
+def tailscale_ips(status: dict | None) -> set[str]:
+    return set(((status or {}).get("Self") or {}).get("TailscaleIPs") or [])
 
 
 def is_loopback(host: str) -> bool:
@@ -85,10 +124,18 @@ def main(argv: list[str] | None = None) -> None:
     print(f"margin-notes {__version__}")
     print(f"  serving  {root}")
     print(f"  open     {url}")
-    if args.host in ("0.0.0.0", "::"):
+    every_interface = args.host in ("0.0.0.0", "::")
+    if every_interface:
         lan = lan_address()
         if lan:
             print(f"  network  http://{lan}:{port}{start_path}")
+    ts = tailscale_status()
+    ts_names = tailscale_names(ts)
+    if every_interface or args.host in tailscale_ips(ts) or args.host in ts_names:
+        for name in ts_names:
+            print(f"  tailnet  http://{name}:{port}{start_path}")
+    elif ts_names:
+        print(f"  tailnet  {', '.join(ts_names)} (add --host 0.0.0.0 to serve there)")
     if not is_loopback(args.host):
         print(
             "  warning  anyone who can reach this address can read every file under the folder "

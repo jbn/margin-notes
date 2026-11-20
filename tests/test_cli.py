@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import socket
 import subprocess
 import sys
@@ -20,6 +21,7 @@ def run(monkeypatch):
         calls.update(app=app, host=host, port=port)
 
     monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setattr(cli, "tailscale_status", lambda: None)  # tests never see this machine's tailnet
     monkeypatch.setattr(cli.webbrowser, "open", opened.append)
 
     class Timer:  # run the browser-open callback immediately
@@ -109,3 +111,71 @@ def test_module_entry_point():
     cmd = [sys.executable, "-m", "margin_notes", "--version"]
     out = subprocess.run(cmd, capture_output=True, text=True, check=True)
     assert out.stdout.strip() == f"margin-notes {__version__}"
+
+
+TS_STATUS = {
+    "BackendState": "Running",
+    "Self": {"DNSName": "box.example.ts.net.", "TailscaleIPs": ["100.64.0.7", "fd7a:115c:a1e0::7"]},
+    "CurrentTailnet": {"MagicDNSEnabled": True},
+}
+
+
+class TestTailscale:
+    def test_names_with_magic_dns(self):
+        assert cli.tailscale_names(TS_STATUS) == ["box", "box.example.ts.net"]
+
+    def test_names_without_magic_dns(self):
+        status = {**TS_STATUS, "CurrentTailnet": {"MagicDNSEnabled": False}}
+        assert cli.tailscale_names(status) == ["box.example.ts.net"]
+
+    def test_names_fall_back_to_ipv4(self):
+        status = {"BackendState": "Running", "Self": {"TailscaleIPs": ["fd7a::1", "100.64.0.7"]}}
+        assert cli.tailscale_names(status) == ["100.64.0.7"]
+
+    def test_no_tailscale(self):
+        assert cli.tailscale_names(None) == []
+
+    def test_status_without_the_cli(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(cli.shutil, "which", lambda _: None)
+        monkeypatch.setattr(cli, "TAILSCALE_APP", tmp_path / "missing")
+        assert cli.tailscale_status() is None
+
+    @pytest.mark.parametrize(
+        "stdout, expected",
+        [
+            (json.dumps(TS_STATUS), TS_STATUS),
+            (json.dumps({**TS_STATUS, "BackendState": "Stopped"}), None),
+            ("not json", None),
+            ("", None),
+        ],
+    )
+    def test_status_parsing(self, monkeypatch, stdout, expected):
+        monkeypatch.setattr(cli.shutil, "which", lambda _: "/usr/bin/tailscale")
+        monkeypatch.setattr(cli.subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(a, 0, stdout=stdout))
+        assert cli.tailscale_status() == expected
+
+    def test_status_times_out_quietly(self, monkeypatch):
+        def hang(*a, **kw):
+            raise subprocess.TimeoutExpired("tailscale", 2)
+
+        monkeypatch.setattr(cli.shutil, "which", lambda _: "/usr/bin/tailscale")
+        monkeypatch.setattr(cli.subprocess, "run", hang)
+        assert cli.tailscale_status() is None
+
+    def test_urls_when_serving_every_interface(self, run, tree, monkeypatch, capsys):
+        monkeypatch.setattr(cli, "tailscale_status", lambda: TS_STATUS)
+        calls, _ = run(str(tree), "--host", "0.0.0.0", "--no-open", "--port", "0")
+        out = capsys.readouterr().out
+        assert f"tailnet  http://box:{calls['port']}/" in out
+        assert f"tailnet  http://box.example.ts.net:{calls['port']}/" in out
+
+    def test_hint_when_serving_localhost(self, run, tree, monkeypatch, capsys):
+        monkeypatch.setattr(cli, "tailscale_status", lambda: TS_STATUS)
+        run(str(tree), "--no-open", "--port", "0")
+        out = capsys.readouterr().out
+        assert "tailnet  box, box.example.ts.net (add --host 0.0.0.0 to serve there)" in out
+        assert "http://box" not in out
+
+    def test_silent_without_tailscale(self, run, tree, capsys):
+        run(str(tree), "--host", "0.0.0.0", "--no-open", "--port", "0")
+        assert "tailnet" not in capsys.readouterr().out
